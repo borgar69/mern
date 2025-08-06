@@ -43,7 +43,7 @@ const WorkoutForm = ({ workout, setShowModal }) => {
         e.preventDefault()
         const workoutSubmitted = {title, load, reps}
         console.log('lmao')
-        const response = await fetch('api/workouts/' + workout._id, {
+        const response = await fetch('api/workouts/' + workout.id, {
             method: 'PATCH', 
             body: JSON.stringify(workoutSubmitted), 
             headers: {
@@ -60,14 +60,14 @@ const WorkoutForm = ({ workout, setShowModal }) => {
         if(response.ok) {
             setError(null)
             setEmptyFields([])
-            setShowModal(false)
-            console.log('workout updated')
+            setShowModal(false) 
             dispatch({type: 'UPDATE_WORKOUT', payload: json})
+            console.log('workout updated')
         }
     }
 
     return(
-        <form className="create" onSubmit={workout && workout._id ? handleUpdate : handleSubmit}>
+        <form className="create" onSubmit={workout && workout.id ? handleUpdate : handleSubmit}>
             <h3>{workout === null ? 'Add new ' : 'Update '}workout</h3>
             <label>Exercise Title: </label>
             <input 

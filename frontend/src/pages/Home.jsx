@@ -23,8 +23,8 @@ const Home = () => {
         <div className="home">
             <div className="workouts">
                 {workouts && workouts.map((workout) => {
-                if (!workout || !workout._id) return null;
-                return <WorkoutDetails key={workout._id} workout={workout} />;
+                if (!workout || !workout.id) return null;
+                return <WorkoutDetails key={workout.id} workout={workout} />;
                 })}
             </div>     
             <WorkoutForm workout={null}/> 
