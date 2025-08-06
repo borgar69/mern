@@ -1,91 +1,118 @@
-const Workout = require('../models/workoutsModel')
-const mongoose = require('mongoose')
+import mysql from 'mysql2'
 
-// get all workout
-const getAllWorkouts = async(req,res) => {
-    const allWorkouts = await Workout.find({}).sort({createdAt: -1})
+const pool = mysql.createPool({
+  host: '127.0.0.1',
+  user: 'root',
+  password: '',
+  database: 'workout_app',
+}).promise()
 
-    res.status(200).json(allWorkouts)
+// Get all workouts
+const getAllWorkouts = async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM workouts ORDER BY created DESC')
+    res.status(200).json(rows)
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
 }
 
-// get a single workout
-const getSingleWorkout = async(req,res) => {
-    const {id} = req.params
+// Get a single workout
+const getSingleWorkout = async (req, res) => {
+  const { id } = req.params
 
-    if(!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(404).json({error: 'No workout found'})
+  if (isNaN(id)) {
+    return res.status(400).json({ error: 'Invalid ID format' })
+  }
+
+  try {
+    const [rows] = await pool.query('SELECT * FROM workouts WHERE id = ?', [id])
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'No workout found' })
     }
-
-    const workout = await Workout.findById(id)
-
-    if(!workout) {
-        return res.status(404).json({error: 'No workout found'})
-    }
-
-    res.status(200).json(workout)
+    res.status(200).json(rows[0])
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
 }
 
-// create a new workout 
-const createWorkout = async(req, res) => {
-    const {title, load, reps} = req.body
+// Create a new workout
+const createWorkout = async (req, res) => {
+  const { title, load, reps } = req.body
 
-    let emptyFields = []
-    if (!title) {
-        emptyFields.push('title')
-    }
-    if (!load) {
-        emptyFields.push('load')
-    }
-    if (!reps) {
-        emptyFields.push('reps')
-    }
-    if (emptyFields.length > 0) {
-        return res.status(400).json({error: 'Please input all fields', emptyFields})
-    }
-    
-    try {
-        const workout = await Workout.create({title, load, reps})
-        res.status(200).json(workout)
-    } catch (error) {
-        res.status(400).json({error: error.message})
-    }
+  const emptyFields = []
+  if (!title) emptyFields.push('title')
+  if (!load) emptyFields.push('load')
+  if (!reps) emptyFields.push('reps')
+
+  if (emptyFields.length > 0) {
+    return res.status(400).json({ error: 'Please input all fields', emptyFields })
+  }
+
+  try {
+    const [result] = await pool.query(
+      'INSERT INTO workouts (title, `load`, reps) VALUES (?, ?, ?)',
+      [title, load, reps]
+    )
+    const [newWorkout] = await pool.query('SELECT * FROM workouts WHERE id = ?', [result.insertId])
+    res.status(200).json(newWorkout[0])
+  } catch (error) {
+    res.status(400).json({ error: error.message })
+  }
 }
 
-// delete a workout
-const deleteWorkout = async(req, res) => {
-    const {id} = req.params
+// Delete a workout
+const deleteWorkout = async (req, res) => {
+  const { id } = req.params
 
-    if(!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(404).json({error: 'No workout found'})
+  if (isNaN(id)) {
+    return res.status(400).json({ error: 'Invalid ID format' })
+  }
+
+  try {
+    const [rows] = await pool.query('SELECT * FROM workouts WHERE id = ?', [id])
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'No workout found' })
     }
 
-    const workout = await Workout.findByIdAndDelete({_id: id})
+    await pool.query('DELETE FROM workouts WHERE id = ?', [id])
+    res.status(200).json(rows[0])
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+}
 
-    if(!workout) {
-        return res.status(404).json({error: 'No workout found'})
+// Update a workout
+const updateWorkout = async (req, res) => {
+  const { id } = req.params
+  const { title, load, reps } = req.body
+
+  if (isNaN(id)) {
+    return res.status(400).json({ error: 'Invalid ID format' })
+  }
+
+  try {
+    const [rows] = await pool.query('SELECT * FROM workouts WHERE id = ?', [id])
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'No workout found' })
     }
-    res.status(200).json(workout)
 
+    await pool.query(
+      'UPDATE workouts SET title = ?, `load` = ?, reps = ? WHERE id = ?',
+      [title || rows[0].title, load || rows[0].load, reps || rows[0].reps, id]
+    )
+
+    const [updatedWorkout] = await pool.query('SELECT * FROM workouts WHERE id = ?', [id])
+    res.status(200).json(updatedWorkout[0])
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
 }
 
-// update a workout 
-const updateWorkout = async(req, res) => {
-    const { id } = req.params
-
-    if(!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(404).json({error: 'No workout found'})
-    }
-
-    const workout = await Workout.findByIdAndUpdate({_id: id}, {...req.body})
-
-    res.status(200).json(workout)
+export {
+  getAllWorkouts,
+  getSingleWorkout,
+  createWorkout,
+  deleteWorkout,
+  updateWorkout
 }
-
-module.exports = {
-    getAllWorkouts, 
-    getSingleWorkout,
-    createWorkout, 
-    deleteWorkout, 
-    updateWorkout
-}
-

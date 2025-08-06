@@ -1,32 +1,47 @@
 require('dotenv').config()
 
 const express = require('express')
-const mongoose = require('mongoose')
 const workoutRoutes = require('./routes/workouts')
+const mysql = require('mysql2')
 
-// express app
-const app = express()
+// create connection pool
+const pool = mysql.createPool({
+  host: process.env.MYSQL_HOST || 'localhost',
+  user: process.env.MYSQL_USER || 'root',
+  password: process.env.MYSQL_PASSWORD || '',
+  database: process.env.MYSQL_DATABASE || 'workout_app',
+}).promise()
 
-//middleware
-app.use(express.json())
+// test DB connection
+pool.query('SELECT 1')
+  .then(() => {
+    console.log('✅ Connected to MySQL database')
 
-app.use((req, res, next) => {
-    console.log(req.path, req.method)
-    next()
-})
+    // express app
+    const app = express()
 
-app.use('/api/workouts', workoutRoutes)
+    // middleware
+    app.use(express.json())
 
-// connect to db 
-mongoose.connect(process.env.MONGO_URI)
-    .then(() => {
-        // listen for requests 
-        app.listen(process.env.PORT, () => {
-            console.log("connected to db and listening on port",process.env.PORT)
-        })      
+    app.use((req, res, next) => {
+      console.log(req.path, req.method)
+      next()
     })
-    .catch((error) => {
-        console.log(error)
+
+    // pass pool to routes via req object if needed
+    app.use((req, res, next) => {
+      req.pool = pool
+      next()
     })
 
+    app.use('/api/workouts', workoutRoutes)
 
+    // listen for requests
+    const PORT = process.env.PORT || 4000
+    app.listen(PORT, () => {
+      console.log(`Server listening on port ${PORT}`)
+    })
+  })
+  .catch((err) => {
+    console.error(' MySQL connection failed:', err)
+  })
